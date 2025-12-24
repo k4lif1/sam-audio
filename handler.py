@@ -2,7 +2,7 @@
 RunPod Serverless Handler for SAM-Audio.
 """
 
-import sys
+import sys 
 print("="*60, flush=True)
 print("SAM-Audio Handler - Early startup", flush=True)
 print(f"Python: {sys.version}", flush=True)

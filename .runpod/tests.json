@@ -8,7 +8,7 @@
                 "predict_spans": false,
                 "reranking_candidates": 1
             },
-            "timeout": 120000
+            "timeout": 1800000
         }
     ],
     "config": {
@@ -21,7 +21,7 @@
             },
             {
                 "key": "MODEL_SIZE",
-                "value": "base"
+                "value": "small"
             }
         ],
         "allowedCudaVersions": [

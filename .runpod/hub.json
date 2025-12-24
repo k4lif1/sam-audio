@@ -1,0 +1,75 @@
+{
+  "title": "SAM-Audio",
+  "description": "Segment Anything Model for Audio - Isolate any sound using text, visual, or temporal prompts",
+  "type": "serverless",
+  "category": "audio",
+  "iconUrl": "https://raw.githubusercontent.com/facebookresearch/sam-audio/main/assets/sam_audio_main_model.png",
+  "config": {
+    "runsOn": "GPU",
+    "containerDiskInGb": 50,
+    "presets": [
+      {
+        "name": "Large Model (Best Quality)",
+        "defaults": {
+          "MODEL_SIZE": "large",
+          "PREDICT_SPANS": "true",
+          "RERANKING_CANDIDATES": "8"
+        }
+      },
+      {
+        "name": "Base Model (Balanced)",
+        "defaults": {
+          "MODEL_SIZE": "base",
+          "PREDICT_SPANS": "true",
+          "RERANKING_CANDIDATES": "4"
+        }
+      },
+      {
+        "name": "Small Model (Fast)",
+        "defaults": {
+          "MODEL_SIZE": "small",
+          "PREDICT_SPANS": "false",
+          "RERANKING_CANDIDATES": "1"
+        }
+      }
+    ],
+    "env": [
+      {
+        "key": "HUGGING_FACE_HUB_TOKEN",
+        "input": {
+          "name": "HuggingFace Token",
+          "type": "string",
+          "description": "Your HuggingFace access token (required for gated model access)",
+          "required": true
+        }
+      },
+      {
+        "key": "MODEL_SIZE",
+        "input": {
+          "name": "Model Size",
+          "type": "string",
+          "description": "Model variant: small, base, or large",
+          "default": "large"
+        }
+      },
+      {
+        "key": "PREDICT_SPANS",
+        "input": {
+          "name": "Predict Spans",
+          "type": "string",
+          "description": "Enable automatic span prediction (true/false)",
+          "default": "true"
+        }
+      },
+      {
+        "key": "RERANKING_CANDIDATES",
+        "input": {
+          "name": "Reranking Candidates",
+          "type": "string",
+          "description": "Number of candidates for reranking (1-8, higher = better quality but slower)",
+          "default": "4"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+    "tests": [
+        {
+            "name": "text_separation_test",
+            "input": {
+                "audio_url": "https://cdn.pixabay.com/download/audio/2024/07/09/audio_d54c2afa02.mp3?filename=room-full-of-people-talking-223318.mp3",
+                "description": "A man speaking",
+                "predict_spans": false,
+                "reranking_candidates": 1
+            },
+            "timeout": 120000
+        }
+    ],
+    "config": {
+        "gpuTypeId": "NVIDIA GeForce RTX 4090",
+        "gpuCount": 1,
+        "env": [
+            {
+                "key": "HUGGING_FACE_HUB_TOKEN",
+                "value": "${HUGGING_FACE_HUB_TOKEN}"
+            },
+            {
+                "key": "MODEL_SIZE",
+                "value": "base"
+            }
+        ],
+        "allowedCudaVersions": [
+            "12.4",
+            "12.3",
+            "12.2",
+            "12.1",
+            "12.0",
+            "11.8"
+        ]
+    }
+}

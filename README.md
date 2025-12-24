@@ -5,6 +5,7 @@
 [![arXiv](https://img.shields.io/badge/arXiv-2512.18099-b31b1b.svg)](https://arxiv.org/abs/2512.18099)
 ![CI](https://github.com/facebookresearch/sam-audio/actions/workflows/ci.yaml/badge.svg)
 [![Hugging Face](https://img.shields.io/badge/HuggingFace-Collection-orange?logo=huggingface)](https://huggingface.co/collections/facebook/sam-audio)
+[![Runpod](https://api.runpod.io/badge/k4lif1/sam-audio)](https://console.runpod.io/hub/k4lif1/sam-audio)
 
 ![model_image](assets/sam_audio_main_model.png)
 

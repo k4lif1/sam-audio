@@ -48,7 +48,9 @@ COPY handler.py .
 ENV HF_HOME=/runpod-volume/huggingface
 ENV TRANSFORMERS_CACHE=/runpod-volume/huggingface
 ENV HUGGINGFACE_HUB_CACHE=/runpod-volume/huggingface
-ENV PYTHONUNBUFFERED=1 
+# Copy start script
+COPY start.sh .
+RUN chmod +x start.sh
 
-# Start the handler using full path to be 100% sure
-CMD ["/usr/bin/python3.11", "-u", "handler.py"]
+# Start using shell script wrapper
+CMD ["./start.sh"]

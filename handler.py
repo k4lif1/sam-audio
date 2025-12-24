@@ -1,38 +1,50 @@
 """
 RunPod Serverless Handler for SAM-Audio.
-
-This handler provides a serverless API for the SAM-Audio model,
-allowing audio separation based on text descriptions.
 """
 
-import os
 import sys
-import time
-import base64
-import tempfile
-from io import BytesIO
-from datetime import datetime
+print("="*60, flush=True)
+print("SAM-Audio Handler - Early startup", flush=True)
+print(f"Python: {sys.version}", flush=True)
 
-import requests
-import runpod
-import torch
-import torchaudio
+try:
+    import os
+    import time
+    import base64
+    import tempfile
+    from io import BytesIO
+    from datetime import datetime
+    print("Basic imports OK", flush=True)
+    
+    import requests
+    print("requests OK", flush=True)
+    
+    import runpod
+    print("runpod OK", flush=True)
+    
+    import torch
+    print(f"torch OK - CUDA: {torch.cuda.is_available()}", flush=True)
+    if torch.cuda.is_available():
+        print(f"GPU: {torch.cuda.get_device_name(0)}", flush=True)
+    
+    import torchaudio
+    print("torchaudio OK", flush=True)
+    
+except Exception as e:
+    print(f"IMPORT ERROR: {e}", flush=True)
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
 
-# Configure logging to stdout for RunPod visibility
+print("All imports successful!", flush=True)
+print("="*60, flush=True)
+
+
 def log(message: str):
-    """Print timestamped log message to stdout."""
+    """Print timestamped log message."""
     timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
     print(f"[{timestamp}] {message}", flush=True)
 
-log("="*60)
-log("SAM-Audio Handler Starting")
-log(f"Python version: {sys.version}")
-log(f"PyTorch version: {torch.__version__}")
-log(f"CUDA available: {torch.cuda.is_available()}")
-if torch.cuda.is_available():
-    log(f"CUDA device: {torch.cuda.get_device_name(0)}")
-    log(f"CUDA memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
-log("="*60)
 
 # Global model reference
 model = None
@@ -46,37 +58,40 @@ def load_model():
     model_size = os.environ.get("MODEL_SIZE", "large")
     model_name = f"facebook/sam-audio-{model_size}"
 
-    log(f"Starting model load: {model_name}")
-    log(f"HuggingFace cache dir: {os.environ.get('HF_HOME', 'default')}")
+    log(f"Loading model: {model_name}")
+    log(f"HF_HOME: {os.environ.get('HF_HOME', 'not set')}")
+    log(f"HUGGING_FACE_HUB_TOKEN set: {bool(os.environ.get('HUGGING_FACE_HUB_TOKEN'))}")
     
     start_time = time.time()
     
-    log("Loading SAMAudio model from HuggingFace...")
-    from sam_audio import SAMAudio, SAMAudioProcessor
-    
-    log("Downloading/loading model weights (this may take several minutes on first run)...")
-    model = SAMAudio.from_pretrained(model_name)
-    model_load_time = time.time() - start_time
-    log(f"Model weights loaded in {model_load_time:.1f}s")
-    
-    log("Loading processor...")
-    processor = SAMAudioProcessor.from_pretrained(model_name)
-    processor_load_time = time.time() - start_time - model_load_time
-    log(f"Processor loaded in {processor_load_time:.1f}s")
-    
-    log("Moving model to CUDA...")
-    model = model.eval().cuda()
-    
-    total_time = time.time() - start_time
-    log(f"Model ready! Total load time: {total_time:.1f}s")
-    log("="*60)
+    try:
+        log("Importing sam_audio...")
+        from sam_audio import SAMAudio, SAMAudioProcessor
+        log("sam_audio imported OK")
+        
+        log("Loading model from HuggingFace (may take 10-20 min on first run)...")
+        model = SAMAudio.from_pretrained(model_name)
+        log(f"Model loaded in {time.time() - start_time:.1f}s")
+        
+        log("Loading processor...")
+        processor = SAMAudioProcessor.from_pretrained(model_name)
+        log("Processor loaded")
+        
+        log("Moving model to CUDA...")
+        model = model.eval().cuda()
+        
+        log(f"Model ready! Total time: {time.time() - start_time:.1f}s")
+        
+    except Exception as e:
+        log(f"MODEL LOAD ERROR: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 def download_audio(url: str) -> str:
     """Download audio from URL to temp file."""
-    log(f"Downloading audio from: {url[:100]}...")
-    start_time = time.time()
-    
+    log(f"Downloading: {url[:80]}...")
     response = requests.get(url, timeout=60)
     response.raise_for_status()
 
@@ -85,57 +100,27 @@ def download_audio(url: str) -> str:
         suffix = ".mp3"
     elif ".flac" in url.lower():
         suffix = ".flac"
-    elif ".ogg" in url.lower():
-        suffix = ".ogg"
 
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
         f.write(response.content)
-        download_time = time.time() - start_time
-        log(f"Audio downloaded: {len(response.content)/1024:.1f} KB in {download_time:.1f}s -> {f.name}")
+        log(f"Downloaded {len(response.content)/1024:.1f} KB")
         return f.name
 
 
 def handler(event):
-    """
-    RunPod serverless handler for SAM-Audio.
-
-    Input:
-        - audio_url (str): URL to the audio file
-        - audio_base64 (str): Base64 encoded audio (alternative to URL)
-        - description (str): Text description of the sound to isolate
-        - predict_spans (bool): Enable automatic span prediction (default: True)
-        - reranking_candidates (int): Number of reranking candidates (default: 4)
-        - anchors (list): Optional time ranges [["+", start, end], ...]
-
-    Output:
-        - target_audio (str): Base64 encoded separated target audio (WAV)
-        - residual_audio (str): Base64 encoded residual audio (WAV)
-        - sample_rate (int): Audio sample rate
-    """
+    """RunPod serverless handler for SAM-Audio."""
     global model, processor
 
-    log("="*60)
-    log("New request received")
-    request_start = time.time()
+    log("Request received")
 
     if model is None:
-        log("Model not loaded, loading now...")
         load_model()
-    else:
-        log("Model already loaded, processing request...")
 
     input_data = event.get("input", {})
-
-    # Get audio input
     audio_url = input_data.get("audio_url")
     audio_base64 = input_data.get("audio_base64")
     description = input_data.get("description", "")
 
-    log(f"Description: '{description}'")
-    log(f"Audio URL provided: {bool(audio_url)}")
-    log(f"Audio base64 provided: {bool(audio_base64)}")
-
-    # Get processing options with defaults from environment
     predict_spans = input_data.get(
         "predict_spans",
         os.environ.get("PREDICT_SPANS", "true").lower() == "true"
@@ -145,103 +130,77 @@ def handler(event):
         int(os.environ.get("RERANKING_CANDIDATES", "4"))
     )
     anchors = input_data.get("anchors")
-    
-    log(f"Options: predict_spans={predict_spans}, reranking_candidates={reranking_candidates}")
 
-    # Validation
+    log(f"Description: {description}")
+    log(f"predict_spans={predict_spans}, reranking={reranking_candidates}")
+
     if not audio_url and not audio_base64:
-        log("ERROR: No audio input provided")
         return {"error": "Either 'audio_url' or 'audio_base64' is required"}
-
     if not description:
-        log("ERROR: No description provided")
         return {"error": "'description' is required"}
 
     temp_files = []
 
     try:
-        # Load audio
         if audio_url:
             audio_path = download_audio(audio_url)
             temp_files.append(audio_path)
         else:
-            log("Decoding base64 audio...")
             audio_bytes = base64.b64decode(audio_base64)
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
                 f.write(audio_bytes)
                 audio_path = f.name
                 temp_files.append(audio_path)
-                log(f"Audio saved to: {audio_path}")
 
-        # Prepare batch
-        log("Preparing audio batch...")
-        batch_kwargs = {
-            "audios": [audio_path],
-            "descriptions": [description],
-        }
-
+        log("Processing audio...")
+        batch_kwargs = {"audios": [audio_path], "descriptions": [description]}
         if anchors:
             batch_kwargs["anchors"] = [anchors]
-            log(f"Using anchors: {anchors}")
 
         batch = processor(**batch_kwargs).to("cuda")
-        log("Batch prepared and moved to CUDA")
 
-        # Run separation
-        log("Running audio separation...")
-        separation_start = time.time()
+        log("Running separation...")
+        start = time.time()
         with torch.inference_mode():
             result = model.separate(
                 batch,
                 predict_spans=predict_spans,
                 reranking_candidates=reranking_candidates
             )
-        separation_time = time.time() - separation_start
-        log(f"Separation complete in {separation_time:.1f}s")
+        log(f"Separation done in {time.time() - start:.1f}s")
 
         sample_rate = processor.audio_sampling_rate
 
-        # Encode outputs as base64
-        log("Encoding output audio to base64...")
         def audio_to_base64(audio_tensor):
             buffer = BytesIO()
             torchaudio.save(buffer, audio_tensor.cpu(), sample_rate, format="wav")
             buffer.seek(0)
             return base64.b64encode(buffer.read()).decode("utf-8")
 
-        target_b64 = audio_to_base64(result.target)
-        residual_b64 = audio_to_base64(result.residual)
-        
-        total_time = time.time() - request_start
-        log(f"Request complete! Total time: {total_time:.1f}s")
-        log(f"Output sizes: target={len(target_b64)/1024:.1f}KB, residual={len(residual_b64)/1024:.1f}KB")
-        log("="*60)
-
+        log("Encoding output...")
         return {
-            "target_audio": target_b64,
-            "residual_audio": residual_b64,
+            "target_audio": audio_to_base64(result.target),
+            "residual_audio": audio_to_base64(result.residual),
             "sample_rate": sample_rate
         }
 
     except Exception as e:
-        log(f"ERROR: {type(e).__name__}: {str(e)}")
+        log(f"ERROR: {e}")
         import traceback
-        log(traceback.format_exc())
+        traceback.print_exc()
         return {"error": str(e)}
 
     finally:
-        # Clean up temp files
         for f in temp_files:
             try:
                 os.unlink(f)
-                log(f"Cleaned up temp file: {f}")
-            except Exception:
+            except:
                 pass
 
 
-# Initialize model on cold start
-log("Initializing model on cold start...")
+# Cold start
+log("Starting cold start model load...")
 load_model()
 
-log("Starting RunPod serverless handler...")
+log("Starting RunPod handler...")
 runpod.serverless.start({"handler": handler})

@@ -1,25 +1,33 @@
-FROM pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
 WORKDIR /app
 
-# Install system dependencies including git for pip git+ installs
+# Install Python 3.11 and system dependencies
 RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3.11-venv \
+    python3.11-dev \
+    python3-pip \
     git \
     ffmpeg \
     libsndfile1 \
     build-essential \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 \
+    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 
 # Upgrade pip
-RUN pip install --upgrade pip setuptools wheel
+RUN python -m pip install --upgrade pip setuptools wheel
+
+# Install PyTorch with CUDA 12.1 support
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
 # Copy project files
 COPY pyproject.toml .
 COPY sam_audio/ ./sam_audio/
 
-# Install the package with legacy resolver to handle conflicts
-RUN pip install --no-cache-dir --use-deprecated=legacy-resolver . || \
-    pip install --no-cache-dir .
+# Install the package
+RUN pip install --no-cache-dir .
 
 # Install runpod
 RUN pip install --no-cache-dir runpod requests

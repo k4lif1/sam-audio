@@ -77,8 +77,9 @@ def load_model():
         processor = SAMAudioProcessor.from_pretrained(model_name)
         log("Processor loaded")
         
-        log("Moving model to CUDA...")
-        model = model.eval().cuda()
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        log(f"Moving model to {device}...")
+        model = model.eval().to(device)
         
         log(f"Model ready! Total time: {time.time() - start_time:.1f}s")
         
@@ -92,7 +93,7 @@ def load_model():
 def download_audio(url: str) -> str:
     """Download audio from URL to temp file."""
     log(f"Downloading: {url[:80]}...")
-    response = requests.get(url, timeout=60)
+    response = requests.get(url, timeout=5)
     response.raise_for_status()
 
     suffix = ".wav"
@@ -157,7 +158,8 @@ def handler(event):
         if anchors:
             batch_kwargs["anchors"] = [anchors]
 
-        batch = processor(**batch_kwargs).to("cuda")
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        batch = processor(**batch_kwargs).to(device)
 
         log("Running separation...")
         start = time.time()

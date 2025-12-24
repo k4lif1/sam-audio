@@ -8,7 +8,7 @@
                 "predict_spans": false,
                 "reranking_candidates": 1
             },
-            "timeout": 1800000
+            "timeout": 300000
         }
     ],
     "config": {
@@ -25,6 +25,7 @@
             }
         ],
         "allowedCudaVersions": [
+            "12.6",
             "12.4",
             "12.3",
             "12.2",

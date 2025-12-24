@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+FROM --platform=linux/amd64 nvidia/cuda:12.6.3-cudnn-runtime-ubuntu22.04
 
 WORKDIR /app
 
@@ -16,6 +16,10 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     git \
     ffmpeg \
+    libavcodec-dev \
+    libavformat-dev \
+    libavutil-dev \
+    libswresample-dev \
     libsndfile1 \
     build-essential \
     curl \
@@ -28,8 +32,8 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 \
 # Upgrade pip via module to ensure we use the right python's pip
 RUN python -m ensurepip --upgrade && python -m pip install --upgrade pip setuptools wheel
 
-# Install PyTorch with CUDA 12.1 support
-RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+# Install PyTorch with CUDA 12.6 support (required for torchcodec compatibility)
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
 
 # Copy project files
 COPY pyproject.toml .
